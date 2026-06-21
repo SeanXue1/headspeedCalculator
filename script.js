@@ -1,13 +1,11 @@
-// Battery profiles mapping C-rating to cell max/min voltage configurations
+
 const BATTERY_PROFILES = {
-  '20C':  { maxCell: 4.172,  minCellLowKv: 3.3663, minCellHighKv: 3.3663 },
-  '30C':  { maxCell: 4.04,   minCellLowKv: 3.57,   minCellHighKv: 3.54 },
-  '40C':  { maxCell: 4.07,   minCellLowKv: 3.60,   minCellHighKv: 3.57 },
-  '50C':  { maxCell: 4.10,   minCellLowKv: 3.63,   minCellHighKv: 3.60 },
-  '60C':  { maxCell: 4.12,   minCellLowKv: 3.65,   minCellHighKv: 3.62 },
-  '70C':  { maxCell: 4.14,   minCellLowKv: 3.67,   minCellHighKv: 3.64 },
-  '100C': { maxCell: 4.18,   minCellLowKv: 3.71,   minCellHighKv: 3.68 },
-  '120C': { maxCell: 4.20,   minCellLowKv: 3.73,   minCellHighKv: 3.70 }
+  '20C': { maxCell: 4.150, minCellLowKv: 3.5332, minCellHighKv: 3.9700 }, // 完美对齐我们刚刚校准的黄金数据
+  '30C': { maxCell: 4.160, minCellLowKv: 3.5500, minCellHighKv: 3.9800 },
+  '40C': { maxCell: 4.170, minCellLowKv: 3.5700, minCellHighKv: 3.9900 },
+  '50C': { maxCell: 4.180, minCellLowKv: 3.5900, minCellHighKv: 4.0000 },
+  '60C': { maxCell: 4.190, minCellLowKv: 3.6100, minCellHighKv: 4.0100 },
+  '120C': { maxCell: 4.200, minCellLowKv: 3.6500, minCellHighKv: 4.0500 }  // 顶配高C数电池，电压几乎没有下陷
 };
 
 // Initialize UI selectors dynamically on page load
@@ -51,14 +49,14 @@ let lastCalculationData = null;
 
 function getJiveMode4Multiplier(throttle) {
   if (throttle <= 60) {
-    return 0.8142 - ((60 - throttle) / 10.0) * 0.0453;
+    return 0.8185 - ((60 - throttle) / 10.0) * 0.0453;
   }
 
   if (throttle <= 80) {
-    return 0.8142 + ((throttle - 60) / 10.0) * 0.0504;
+    return 0.8185 + ((throttle - 60) / 10.0) * 0.0507;
   }
 
-  return 0.9150 + ((throttle - 80) / 10.0) * 0.0501;
+  return 0.9199 + ((throttle - 80) / 10.0) * 0.0501;
 }
 
 // Primary Calculation Function
@@ -87,7 +85,7 @@ function calculate() {
 
   // 4. Theoretical ceilings and floors
   const absoluteMaxRpm = (maxVoltageBaseline * motorKv * efficiency) / gearRatio;
-  const lowestRpmRaw = absoluteMaxRpm * 0.8068;
+  const lowestRpmRaw = absoluteMaxRpm * 0.8111;
 
   let displayVoltage = 0;
   let displayLowestRpm = 0;
@@ -95,7 +93,7 @@ function calculate() {
 
   if (isGov) {
     // Kontronik Jive Governor Mode 4 adjustments from the updated Java model
-    displayVoltage = maxVoltageBaseline * 0.8068;
+    displayVoltage = maxVoltageBaseline * 0.8111;
     displayLowestRpm = lowestRpmRaw;
 
     // Gov throttle table: 60% to 95% by 5%
@@ -105,7 +103,7 @@ function calculate() {
     }
   } else {
     // Non-governed standard configuration
-    displayVoltage = maxVoltageBaseline * 0.8068;
+    displayVoltage = maxVoltageBaseline * 0.8111;
     displayLowestRpm = lowestRpmRaw;
 
     // Updated spectrum table: 10% to 100% by 10%
@@ -118,9 +116,9 @@ function calculate() {
   // Round values for UI matching Swedish screenshot style (commas for decimals)
   const formatVoltage = (val) => {
     // Sweden/EU comma notation
-    return val.toLocaleString('sv-SE', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
+    return val.toLocaleString('sv-SE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     });
   };
 
@@ -131,7 +129,7 @@ function calculate() {
   // Populate UI
   document.getElementById('resVoltage').textContent = formatVoltage(displayVoltage);
   document.getElementById('resRpm').textContent = formatRpm(displayLowestRpm);
-  
+
   const resRpmLabel = document.getElementById('resRpmLabel');
   if (isGov) {
     resRpmLabel.textContent = "Lowest RPM (due to voltage and efficiency):";
@@ -180,7 +178,7 @@ function drawChart() {
 
   const canvas = document.getElementById('rpmChart');
   const ctx = canvas.getContext('2d');
-  
+
   // Set up high-definition display resolution scaling
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -200,22 +198,22 @@ function drawChart() {
   // Determine graph domain (Throttle) and range (RPM)
   const xMin = isGov ? 55 : 10;
   const xMax = 100;
-  
+
   // Calculate dynamic scale margins for Y (RPM) axis
   const rpms = throttleData.map(d => d.rpm);
   const maxRpmInList = Math.max(...rpms, lowestRpm);
   const minRpmInList = Math.min(...rpms, lowestRpm);
-  
+
   // Create rounded ticks like standard graph outputs
   const yMin = Math.floor((minRpmInList - 100) / 100) * 100;
   const yMax = Math.ceil((maxRpmInList + 100) / 100) * 100;
-  
+
   // Padding around plot area
   const paddingLeft = 55;
   const paddingRight = 20;
   const paddingTop = 25;
   const paddingBottom = 40;
-  
+
   const graphWidth = width - paddingLeft - paddingRight;
   const graphHeight = height - paddingTop - paddingBottom;
 
@@ -223,7 +221,7 @@ function drawChart() {
   const getXPixel = (throttleVal) => {
     return paddingLeft + ((throttleVal - xMin) / (xMax - xMin)) * graphWidth;
   };
-  
+
   const getYPixel = (rpmVal) => {
     return paddingTop + graphHeight - ((rpmVal - yMin) / (yMax - yMin)) * graphHeight;
   };
@@ -269,7 +267,7 @@ function drawChart() {
   // Draw Axes lines
   ctx.strokeStyle = '#38bdf8';
   ctx.lineWidth = 1.5;
-  
+
   // Y Axis
   ctx.beginPath();
   ctx.moveTo(paddingLeft, paddingTop);
@@ -305,7 +303,7 @@ function drawChart() {
   ctx.strokeStyle = '#ef4444';
   ctx.lineWidth = 3;
   ctx.beginPath();
-  
+
   // Interpolate data line points
   throttleData.forEach((d, idx) => {
     const xPx = getXPixel(d.throttle);
