@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RC Heli Headspeed Calculator</title>
+  <meta name="description" content="Calculate theoretical and governed RC helicopter headspeed (RPM) based on motor KV, battery C-rating, cells, and gear ratios.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-icon">🚁</div>
+      <h1>Heli Headspeed Calculator</h1>
+      <p class="subtitle">Ultimate Power System & ESC Governor Simulator</p>
+    </header>
+
+    <main class="calculator-card">
+      <form id="calcForm" onsubmit="event.preventDefault(); calculate();">
+        <!-- Battery Configuration -->
+        <section class="form-section">
+          <h2>🔋 Battery Configuration</h2>
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="batteryRating">Battery Rating</label>
+              <select id="batteryRating" required>
+                <option value="20C" selected>20C</option>
+                <option value="30C">30C</option>
+                <option value="40C">40C</option>
+                <option value="50C">50C</option>
+                <option value="60C">60C</option>
+                <option value="70C">70C</option>
+                <option value="100C">100C</option>
+                <option value="120C">120C</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label for="batteryCells">Number of Cells</label>
+              <select id="batteryCells" required>
+                <option value="3">3S</option>
+                <option value="4">4S</option>
+                <option value="6" selected>6S</option>
+                <option value="8">8S</option>
+                <option value="10">10S</option>
+                <option value="12">12S</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <hr class="separator">
+
+        <!-- Gear and Motor Specifications -->
+        <section class="form-section">
+          <h2>⚙️ Gear & Motor Specifications</h2>
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="mainGearTeeth">Main Gear Tooth Count</label>
+              <input type="number" id="mainGearTeeth" placeholder="e.g., 77" min="1" step="1" required value="77">
+            </div>
+            <div class="input-group">
+              <label for="pinionTeeth">Pinion Tooth Count</label>
+              <select id="pinionTeeth" required>
+                <!-- Generated dynamically from 6 to 35 -->
+              </select>
+            </div>
+            <div class="input-group">
+              <label for="motorKv">Motor KV</label>
+              <input type="number" id="motorKv" placeholder="e.g., 890" min="1" step="1" required value="890">
+            </div>
+            <div class="input-group">
+              <label for="motorEfficiency">Motor Peak Efficiency (%)</label>
+              <select id="motorEfficiency" required>
+                <!-- Generated dynamically from 80 to 99 -->
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <hr class="separator">
+
+        <!-- Governor Configuration -->
+        <section class="form-section gov-section">
+          <div class="gov-checkbox-container">
+            <label class="checkbox-label" for="enableGovernor">
+              <input type="checkbox" id="enableGovernor" checked>
+              <span class="custom-checkbox"></span>
+              <span class="checkbox-text">Enable Governor (Kontronik Jive Mode 4)</span>
+            </label>
+          </div>
+        </section>
+
+        <hr class="separator">
+
+        <!-- Submit Button -->
+        <div class="button-container">
+          <button type="submit" id="calculateBtn" class="btn-primary">Calculate &gt;&gt;</button>
+        </div>
+      </form>
+    </main>
+
+    <footer class="app-footer">
+      <p>Offline Mode Enabled &bull; No Internet Required</p>
+    </footer>
+  </div>
+
+  <!-- Results Modal -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Results from the calculation</h3>
+        <button type="button" class="close-link" onclick="closeModal()">Close</button>
+      </div>
+      <div class="modal-body">
+        <p class="calc-label">Result for calculation:</p>
+        
+        <div class="results-summary">
+          <div class="summary-item">
+            <span class="item-label">Estimated lowest voltage during flight:</span>
+            <span class="item-value" id="resVoltage">-</span>
+          </div>
+          <div class="summary-item">
+            <span class="item-label" id="resRpmLabel">Lowest RPM (due to voltage and efficiency):</span>
+            <span class="item-value highlight" id="resRpm">-</span>
+          </div>
+        </div>
+
+        <div class="results-details-grid">
+          <!-- Throttle Table -->
+          <div class="table-container">
+            <h4>Throttle Table (Linear RPM progression)</h4>
+            <div class="table-wrapper">
+              <table id="throttleTable">
+                <thead>
+                  <tr>
+                    <th>Throttle (%)</th>
+                    <th>Head Speed (RPM)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Filled dynamically -->
+                </tbody>
+              </table>
+            </div>
+            <p class="calibration-note">
+              Result is based on ATV is being calibrated, meaning maximum throttle is reached around 100%.
+            </p>
+          </div>
+
+          <!-- Chart Area -->
+          <div class="chart-container">
+            <h4>RPM vs. Throttle (%) Chart</h4>
+            <div class="canvas-wrapper">
+              <canvas id="rpmChart" width="400" height="300"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
