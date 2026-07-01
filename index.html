@@ -84,12 +84,13 @@
 
         <!-- Governor Configuration -->
         <section class="form-section gov-section">
-          <div class="gov-checkbox-container">
-            <label class="checkbox-label" for="enableGovernor">
-              <input type="checkbox" id="enableGovernor" checked>
-              <span class="custom-checkbox"></span>
-              <span class="checkbox-text">Enable Governor (Kontronik Jive Mode 4)</span>
-            </label>
+          <div class="input-group">
+            <label for="governorMode">Governor Mode</label>
+            <select id="governorMode" required>
+              <option value="mode4" selected>Kontronik Jive Mode 4</option>
+              <option value="mode6">Kontronik HeliJive Mode 6</option>
+              <option value="jivepro">Kontronik Jive Pro</option>
+            </select>
           </div>
         </section>
 
@@ -137,6 +138,7 @@
                 <thead>
                   <tr>
                     <th>Throttle (%)</th>
+                    <th>16IZ (%)</th>
                     <th>Head Speed (RPM)</th>
                   </tr>
                 </thead>

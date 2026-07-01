@@ -59,6 +59,78 @@ function getJiveMode4Multiplier(throttle) {
   return 0.9199 + ((throttle - 80) / 10.0) * 0.0501;
 }
 
+function calculateJiveMode4(cells, motorKv, pinion, mainGear, efficiency, profile) {
+  const gearRatio = mainGear / pinion;
+  const maxVoltageBaseline = cells * profile.maxCell;
+  const absoluteMaxRpm = (maxVoltageBaseline * motorKv * efficiency) / gearRatio;
+  const lowestRpm = absoluteMaxRpm * 0.8111;
+  const throttleData = [];
+
+  for (let throttle = 0; throttle <= 100; throttle += 5) {
+    const rpm = absoluteMaxRpm * getJiveMode4Multiplier(throttle);
+    throttleData.push({ throttle, rpm });
+  }
+
+  return {
+    displayVoltage: maxVoltageBaseline * 0.8111,
+    displayLowestRpm: lowestRpm,
+    rpmLabel: "Lowest RPM (due to voltage and efficiency):",
+    throttleData,
+    xMin: 0,
+    xStep: 5
+  };
+}
+
+function calculateHeliJiveMode6(cells, motorKv, pinion, mainGear) {
+  const gearRatio = mainGear / pinion;
+  const heliJiveTargetV = 3.9416;
+  const absoluteMaxRpm = (cells * heliJiveTargetV * motorKv) / gearRatio;
+  const throttleData = [];
+
+  for (let throttle = 0; throttle <= 100; throttle += 5) {
+    const effectiveMultiplier = 0.17 + (throttle / 100) * 0.7875;
+
+    throttleData.push({
+      throttle,
+      rpm: absoluteMaxRpm * effectiveMultiplier
+    });
+  }
+
+  return {
+    displayVoltage: cells * heliJiveTargetV,
+    displayLowestRpm: throttleData[0].rpm,
+    rpmLabel: "Lowest Mode 6 governed RPM:",
+    throttleData,
+    xMin: 0,
+    xStep: 5
+  };
+}
+
+function calculateJivePro(cells, motorKv, pinion, mainGear) {
+  const gearRatio = mainGear / pinion;
+  const calibrationVoltage = 4.18;
+  const motorEfficiency = 0.90;
+  const absoluteLearnedMaxRpm = (cells * calibrationVoltage * motorKv * motorEfficiency) / gearRatio;
+  const usableGovCeiling = absoluteLearnedMaxRpm * 0.89;
+  const throttleData = [];
+
+  for (let throttle = 0; throttle <= 100; throttle += 5) {
+    throttleData.push({
+      throttle,
+      rpm: usableGovCeiling * (throttle / 90)
+    });
+  }
+
+  return {
+    displayVoltage: cells * calibrationVoltage,
+    displayLowestRpm: throttleData[0].rpm,
+    rpmLabel: "Lowest Jive Pro governed RPM:",
+    throttleData,
+    xMin: 0,
+    xStep: 5
+  };
+}
+
 // Primary Calculation Function
 function calculate() {
   const rating = document.getElementById('batteryRating').value;
@@ -67,7 +139,7 @@ function calculate() {
   const pinion = parseInt(document.getElementById('pinionTeeth').value, 10);
   const motorKv = parseInt(document.getElementById('motorKv').value, 10);
   const efficiency = parseInt(document.getElementById('motorEfficiency').value, 10) / 100;
-  const isGov = document.getElementById('enableGovernor').checked;
+  const governorMode = document.getElementById('governorMode').value;
 
   if (isNaN(mainGear) || mainGear <= 0 || isNaN(motorKv) || motorKv <= 0) {
     alert("Please enter valid positive numbers for Main Gear teeth and Motor KV.");
@@ -79,38 +151,13 @@ function calculate() {
 
   // Get active battery profile
   const profile = BATTERY_PROFILES[rating] || BATTERY_PROFILES['20C'];
-
-  // 3. Build the calibrated real-world battery RPM baseline used by the updated Jive Mode 4 curve
-  const maxVoltageBaseline = cells * profile.maxCell;
-
-  // 4. Theoretical ceilings and floors
-  const absoluteMaxRpm = (maxVoltageBaseline * motorKv * efficiency) / gearRatio;
-  const lowestRpmRaw = absoluteMaxRpm * 0.8111;
-
-  let displayVoltage = 0;
-  let displayLowestRpm = 0;
-  let throttleData = [];
-
-  if (isGov) {
-    // Kontronik Jive Governor Mode 4 adjustments from the updated Java model
-    displayVoltage = maxVoltageBaseline * 0.8111;
-    displayLowestRpm = lowestRpmRaw;
-
-    // Gov throttle table: 60% to 95% by 5%
-    for (let throttle = 60; throttle <= 95; throttle += 5) {
-      const rpm = absoluteMaxRpm * getJiveMode4Multiplier(throttle);
-      throttleData.push({ throttle, rpm });
-    }
+  let calculation;
+  if (governorMode === 'mode6') {
+    calculation = calculateHeliJiveMode6(cells, motorKv, pinion, mainGear);
+  } else if (governorMode === 'jivepro') {
+    calculation = calculateJivePro(cells, motorKv, pinion, mainGear);
   } else {
-    // Non-governed standard configuration
-    displayVoltage = maxVoltageBaseline * 0.8111;
-    displayLowestRpm = lowestRpmRaw;
-
-    // Updated spectrum table: 10% to 100% by 10%
-    for (let throttle = 10; throttle <= 100; throttle += 10) {
-      const rpm = absoluteMaxRpm * getJiveMode4Multiplier(throttle);
-      throttleData.push({ throttle, rpm });
-    }
+    calculation = calculateJiveMode4(cells, motorKv, pinion, mainGear, efficiency, profile);
   }
 
   // Round values for UI matching Swedish screenshot style (commas for decimals)
@@ -127,23 +174,21 @@ function calculate() {
   };
 
   // Populate UI
-  document.getElementById('resVoltage').textContent = formatVoltage(displayVoltage);
-  document.getElementById('resRpm').textContent = formatRpm(displayLowestRpm);
+  document.getElementById('resVoltage').textContent = formatVoltage(calculation.displayVoltage);
+  document.getElementById('resRpm').textContent = formatRpm(calculation.displayLowestRpm);
 
   const resRpmLabel = document.getElementById('resRpmLabel');
-  if (isGov) {
-    resRpmLabel.textContent = "Lowest RPM (due to voltage and efficiency):";
-  } else {
-    resRpmLabel.textContent = "Lowest Safe RPM (at battery discharge floor):";
-  }
+  resRpmLabel.textContent = calculation.rpmLabel;
 
   // Populate Throttle Table
   const tableBody = document.querySelector('#throttleTable tbody');
   tableBody.innerHTML = '';
-  throttleData.forEach(row => {
+  calculation.throttleData.forEach(row => {
+    const throttle16Iz = (row.throttle * 2) - 100;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${row.throttle}%</td>
+      <td>${throttle16Iz}%</td>
       <td>${formatRpm(row.rpm)}</td>
     `;
     tableBody.appendChild(tr);
@@ -151,9 +196,10 @@ function calculate() {
 
   // Store data for graph rendering
   lastCalculationData = {
-    isGov,
-    lowestRpm: displayLowestRpm,
-    throttleData
+    lowestRpm: calculation.displayLowestRpm,
+    throttleData: calculation.throttleData,
+    xMin: calculation.xMin,
+    xStep: calculation.xStep
   };
 
   // Open Results Window
@@ -193,10 +239,9 @@ function drawChart() {
   ctx.fillStyle = '#0f1524';
   ctx.fillRect(0, 0, width, height);
 
-  const { isGov, lowestRpm, throttleData } = lastCalculationData;
+  const { lowestRpm, throttleData, xMin, xStep } = lastCalculationData;
 
   // Determine graph domain (Throttle) and range (RPM)
-  const xMin = isGov ? 55 : 10;
   const xMax = 100;
 
   // Calculate dynamic scale margins for Y (RPM) axis
@@ -251,7 +296,6 @@ function drawChart() {
   // X-axis grid and ticks (Throttle %)
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  const xStep = isGov ? 5 : 10;
   for (let t = xMin; t <= xMax; t += xStep) {
     const xPx = getXPixel(t);
     // Grid line
