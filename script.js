@@ -373,3 +373,19 @@ function drawChart() {
     ctx.stroke();
   });
 }
+
+// Expose for unit testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    BATTERY_PROFILES,
+    getJiveMode4Multiplier,
+    calculateJiveMode4,
+    calculateHeliJiveMode6,
+    calculateJivePro,
+    calculate,
+    debouncedRedraw,
+    openModal,
+    closeModal,
+    drawChart,
+  };
+}
